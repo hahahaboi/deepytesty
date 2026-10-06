@@ -1,0 +1,8 @@
+{
+  "name": "deeptrace-test-app",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node server.js"
+  },
+  "dependencies": {}
+}
