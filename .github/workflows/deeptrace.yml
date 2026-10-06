@@ -7,7 +7,10 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
 
 jobs:
   deeptrace:
@@ -15,11 +18,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         if: hashFiles('package.json') != ''
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -43,7 +46,7 @@ jobs:
 
       - name: Setup Python
         if: hashFiles('requirements.txt') != ''
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -64,3 +67,26 @@ jobs:
           echo "DeepTrace could not identify a supported project test entry point."
           echo "Add package.json or requirements.txt, then push again."
           exit 1
+
+      - name: DeepTrace Automated On-Failure Diagnostics
+        if: failure()
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## ⚡ DeepTrace Automated Failure Diagnostics" >> $GITHUB_STEP_SUMMARY
+          echo "DeepTrace automatically detected and analyzed a failure in this workflow run." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 Failure Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow: **${{ github.workflow }}** | Commit: \`${{ github.sha }}\` | Ref: \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛠️ Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Open the DeepTrace Chrome Extension to view the full **Gemini AI Root Cause** & click **Create Fix PR** to resolve it." >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ -n "${{ github.event.pull_request.number }}" ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body "### 🚨 DeepTrace Automated CI Failure Alert
+
+A step in this workflow run has failed. 
+- **Workflow:** [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+- **DeepTrace Status:** AI Diagnosis Ready. Open DeepTrace in Chrome to inspect the fix diff or dispatch a 1-click Fix PR." || true
+          fi
